@@ -8,7 +8,7 @@
     <version>1.0.0</version>
     <packaging>jar</packaging>
     <name>auth-introspection-client-legacy</name>
-    <description>Bearer-token validation for Java 8 / javax.servlet APIs, using the auth server's introspection endpoint with caching. No Spring, no other runtime dependency.</description>
+    <description>Bearer-token validation for Java 8 / javax.servlet APIs, using the auth server's introspection endpoint with caching. The core has no Spring and no other runtime dependency; an optional Spring Boot 2.x auto-configuration registers the filter from properties.</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -22,6 +22,14 @@
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>
             <version>3.0.1</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- Optional: only for the Spring Boot 2.x auto-configuration (com.example.authclient.spring).
+             Provided scope = not passed on to applications; they bring their own Spring Boot. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+            <version>2.7.18</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

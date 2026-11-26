@@ -1,7 +1,7 @@
 # auth-introspection-client-legacy
 
 Bearer-token validation for **Java 8** APIs on **`javax.servlet`** (Servlet 3.0+), using the Auth Server's introspection endpoint.
-Same behaviour as the Java 21 edition (`auth-introspection-client`), with **no Spring and no runtime dependency** except the servlet API your server already provides.
+Same behaviour as the Java 21 edition (`auth-introspection-client`). The core has **no Spring and no runtime dependency** except the servlet API your server already provides; an optional Spring Boot 2.x auto-configuration registers the filter from properties.
 
 Use this edition when the API cannot use the Java 21 library: it runs on Java 8 or newer, in Tomcat 7+ / WebLogic / JBoss / WebSphere style containers, and in old Spring or Spring Boot 1.x/2.x applications.
 **Never put both editions on the same classpath**: they share the package `com.example.authclient`, so moving an application to Java 21 later means replacing the dependency only.
@@ -68,25 +68,23 @@ A missing required setting stops the filter at startup with a clear message.
 </filter-mapping>
 ```
 
-**Spring Boot 1.x or 2.x** (still `javax.servlet`):
+**Spring Boot 2.x: nothing to write.** Add the dependency and set the properties. The jar contains an auto-configuration that registers the filter for every URL, first in the chain:
 
-```java
-@Bean
-public FilterRegistrationBean<BearerTokenFilter> bearerTokenFilter(
-        @Value("${auth.client.introspection-uri}") String uri,
-        @Value("${auth.client.client-id}") String clientId,
-        @Value("${auth.client.client-secret}") String secret) {
-    AuthClientConfig config = new AuthClientConfig()
-            .setIntrospectionUri(uri).setClientId(clientId).setClientSecret(secret)
-            .setRequiredAudience("ekyc-api");
-    FilterRegistrationBean<BearerTokenFilter> bean = new FilterRegistrationBean<>(new BearerTokenFilter(config));
-    bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
-    bean.addUrlPatterns("/*");
-    return bean;
-}
+```yaml
+auth:
+  client:
+    introspection-uri: https://auth.example.com/oauth2/introspect
+    client-id: ekyc-api
+    client-secret: ${EKYC_API_SECRET}      # from the environment / secret store
+    required-audience: ekyc-api
 ```
 
-(`FilterRegistrationBean<>` is generic from Spring Boot 2; in 1.x use the raw type.)
+- It reads the normal Spring `Environment`, so `application.yml`, `application.properties`, environment variables (`AUTH_CLIENT_CLIENT_SECRET`) and config servers all work.
+- It starts only for a Spring Boot 2.x servlet web application. A plain WAR / non-Boot application never loads it and uses web.xml above.
+- A missing required property stops the application at startup with `auth.client.<name> is required`.
+- `auth.client.enabled=false` switches it off (tests only).
+- To do your own wiring, define a bean named `bearerTokenFilter`; the auto-configuration then backs off.
+- Spring Boot **1.x** is not covered (the `FilterRegistrationBean` package differs): register the filter by hand with `new BearerTokenFilter(new AuthClientConfig()...)` or use web.xml.
 
 ## Use the caller in your code
 
@@ -106,7 +104,7 @@ The token tells you **who** the caller is. Whether this user may see **this reco
 ```bash
 mvn verify                  # needs Maven Central (junit, servlet API)
 # or, with the jars already on disk:
-SERVLET_JAR=... JUNIT_JAR=... HAMCREST_JAR=... ./build.sh
+SERVLET_JAR=... JUNIT_JAR=... HAMCREST_JAR=... ./build.sh   # add SPRING_JARS=... to compile the Spring Boot part too
 ```
 
 `maven.compiler.release=8` makes the compiler reject any API newer than Java 8; the class files are version 52. 39 unit tests cover the cache rules, the HTTP call (against a local test server), the filter responses, the settings, and the path tricks.
